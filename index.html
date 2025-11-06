@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exhibition Slideshow</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Segoe UI", Arial, sans-serif;
+    touch-action: manipulation;
+  }
+
+  img, video {
+    max-width: 95vw;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.2);
+  }
+
+  .controls {
+    position: fixed;
+    bottom: 25px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    z-index: 10;
+  }
+
+  button {
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: black;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 14px 26px;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+    transition: background 0.3s, transform 0.2s;
+  }
+
+  button:hover, button:active {
+    background: rgba(255,255,255,1);
+    transform: scale(1.05);
+  }
+
+  #audioToggle {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: black;
+    font-size: 22px;
+    padding: 10px 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 11;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+  }
+
+  #audioToggle:hover {
+    background: rgba(255,255,255,1);
+  }
+
+  /* Loader overlay */
+  #loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    letter-spacing: 1px;
+    z-index: 9999;
+    color: white;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  #loader span {
+    animation: blink 1.2s infinite;
+  }
+</style>
+</head>
+<body>
+  <div id="loader"><span>Loading…</span></div>
+
+  <div id="container">
+    <img id="media" src="slide0img.png" alt="slide 0">
+  </div>
+
+  <div class="controls">
+    <button id="prev">◀ Back</button>
+    <button id="next">Next ▶</button>
+    <button id="restart" style="display:none;">Restart 🔁</button>
+  </div>
+
+  <button id="audioToggle">🔇</button>
+
+<script>
+const slides = [
+  { type: "image", file: "slide0img.png" },
+  { type: "video", file: "slide1vid.mp4" },
+  { type: "video", file: "slide2vid.mp4" },
+  { type: "video", file: "slide3vid.mp4" },
+  { type: "video", file: "slide4vid.mp4" },
+  { type: "video", file: "slide5vid.mp4" },
+  { type: "image", file: "slide6img.png" }
+];
+
+let current = 0;
+let muted = true;
+
+const container = document.getElementById("container");
+const nextBtn = document.getElementById("next");
+const prevBtn = document.getElementById("prev");
+const restartBtn = document.getElementById("restart");
+const audioToggle = document.getElementById("audioToggle");
+const loader = document.getElementById("loader");
+
+function showLoader(show) {
+  loader.style.display = show ? "flex" : "none";
+}
+
+function preloadMedia() {
+  slides.forEach(slide => {
+    if (slide.type === "image") {
+      const img = new Image();
+      img.src = slide.file;
+    } else {
+      const vid = document.createElement("video");
+      vid.src = slide.file;
+      vid.preload = "auto";
+    }
+  });
+}
+
+function showSlide() {
+  showLoader(true);
+  container.innerHTML = "";
+  const slide = slides[current];
+  restartBtn.style.display = (current === slides.length - 1) ? "inline-block" : "none";
+
+  if (slide.type === "image") {
+    const img = document.createElement("img");
+    img.src = slide.file;
+    img.alt = "Slide " + current;
+    img.onload = () => showLoader(false);
+    img.onerror = () => {
+      showLoader(false);
+      img.src = "";
+      container.innerHTML = "<p style='color:red'>⚠️ Image not found: " + slide.file + "</p>";
+    };
+    container.appendChild(img);
+  } else {
+    const vid = document.createElement("video");
+    vid.src = slide.file;
+    vid.autoplay = true;
+    vid.muted = muted;
+    vid.playsInline = true;
+    vid.preload = "auto";
+    vid.controls = false;
+
+    vid.onloadeddata = () => showLoader(false);
+    vid.onerror = () => {
+      showLoader(false);
+      container.innerHTML = "<p style='color:red'>⚠️ Video not found: " + slide.file + "</p>";
+    };
+
+    vid.addEventListener("timeupdate", () => {
+      if (vid.currentTime >= 7) vid.pause();
+    });
+
+    container.appendChild(vid);
+  }
+
+  // Safety fallback: hide loader after 3 seconds even if load event fails
+  setTimeout(() => showLoader(false), 3000);
+}
+
+nextBtn.onclick = () => {
+  current = (current + 1) % slides.length;
+  showSlide();
+};
+prevBtn.onclick = () => {
+  current = (current - 1 + slides.length) % slides.length;
+  showSlide();
+};
+restartBtn.onclick = () => {
+  current = 0;
+  showSlide();
+};
+
+audioToggle.onclick = () => {
+  muted = !muted;
+  audioToggle.textContent = muted ? "🔇" : "🔊";
+  const vid = container.querySelector("video");
+  if (vid) vid.muted = muted;
+};
+
+window.addEventListener("load", () => {
+  preloadMedia();
+  showSlide();
+});
+</script>
+</body>
+</html>
